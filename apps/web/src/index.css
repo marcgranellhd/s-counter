@@ -1,0 +1,79 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 193 38% 96%;
+    --foreground: 212 42% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 212 42% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 212 42% 16%;
+
+    --primary: 174 71% 33%;
+    --primary-foreground: 180 40% 98%;
+
+    --secondary: 197 49% 90%;
+    --secondary-foreground: 210 35% 22%;
+
+    --muted: 194 33% 92%;
+    --muted-foreground: 210 22% 38%;
+
+    --accent: 40 92% 86%;
+    --accent-foreground: 18 66% 26%;
+
+    --destructive: 0 77% 53%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 204 25% 78%;
+    --input: 204 28% 76%;
+    --ring: 174 71% 33%;
+
+    --radius: 0.8rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply font-sans text-foreground antialiased;
+    background-image: radial-gradient(circle at 10% 10%, rgba(34, 211, 238, 0.13), transparent 38%),
+      radial-gradient(circle at 90% 10%, rgba(16, 185, 129, 0.14), transparent 34%),
+      linear-gradient(180deg, hsl(193 38% 96%) 0%, hsl(194 30% 94%) 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(2, 132, 199, 0.35);
+    border-radius: 999px;
+  }
+}
