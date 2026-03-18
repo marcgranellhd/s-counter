@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronsUpDown, Play, RefreshCw, ScanLine, Wrench } from "lucide-react";
+import { Play, RefreshCw, ScanLine, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
+import { ProcessGuide } from "@/components/process-guide";
 import { StatusPill } from "@/components/status-pill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -179,6 +180,10 @@ export function PickingPage() {
 
   const progress = useMemo(() => getProgress(selectedOrder), [selectedOrder]);
   const nextLine = useMemo(() => nextPendingLine(selectedOrder), [selectedOrder]);
+  const remainingForNext = useMemo(() => {
+    if (!nextLine) return 0;
+    return Math.max(0, asNumber(nextLine.qty_ordered) - asNumber(nextLine.qty_picked));
+  }, [nextLine]);
   const activeAdjustLine = useMemo(() => {
     if (!selectedOrder || !adjustLineId) return null;
     return selectedOrder.lines?.find((line) => String(line.id) === String(adjustLineId)) || null;
@@ -251,13 +256,12 @@ export function PickingPage() {
     }
   }
 
-  async function quickScanLine(line, mode) {
+  async function quickScanLine(line) {
     if (!line) return;
     const pending = asNumber(line.qty_ordered) - asNumber(line.qty_picked);
     if (pending <= 0) return;
 
-    const qty = mode === "full" ? pending : 1;
-    await executeScan(line.sku, qty);
+    await executeScan(line.sku, 1);
   }
 
   async function completeOrder() {
@@ -320,13 +324,44 @@ export function PickingPage() {
     <div className="space-y-5">
       <PageHeader
         title="Picking guiado"
-        description="Escaneo con verificacion, checklist por linea y ajustes manuales con impacto en stock"
+        description="Estacion de preparacion pensada para operarios: claro, secuencial y sin pasos tecnicos"
         actions={
           <Button variant="outline" onClick={loadQueue} disabled={isQueueLoading}>
             <RefreshCw className={isQueueLoading ? "animate-spin" : ""} />
             Refrescar cola
           </Button>
         }
+      />
+
+      <ProcessGuide
+        title="Flujo de preparacion recomendado"
+        description="Cada escaneo suma una unidad. Si una linea pide 2, debes escanear 2 veces."
+        steps={[
+          {
+            title: "Abrir pedido",
+            detail: "Selecciona pedido desde cola y valida almacen/origen.",
+            tone: "info",
+            tag: "cola",
+          },
+          {
+            title: "Iniciar picking",
+            detail: "Activa el pedido y prepara el lector en el campo de escaneo.",
+            tone: "info",
+            tag: "inicio",
+          },
+          {
+            title: "Escanear articulo por articulo",
+            detail: "El sistema avanza unidad a unidad y marca check por linea.",
+            tone: "warning",
+            tag: "control",
+          },
+          {
+            title: "Cerrar pedido",
+            detail: "Solo cuando todas las lineas estan al 100%.",
+            tone: "success",
+            tag: "cierre",
+          },
+        ]}
       />
 
       <section className="grid gap-4 xl:grid-cols-5">
@@ -410,7 +445,7 @@ export function PickingPage() {
           <CardContent className="space-y-4">
             {!selectedOrder ? (
               <p className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                1) Selecciona pedido. 2) Inicia picking. 3) Escanea o usa los atajos por linea.
+                1) Selecciona pedido. 2) Inicia picking. 3) Escanea unidad a unidad hasta completar.
               </p>
             ) : (
               <div className="space-y-4">
@@ -449,7 +484,7 @@ export function PickingPage() {
                         Siguiente articulo esperado
                       </p>
                       {nextLine ? (
-                        <div className="mt-2 flex items-center gap-4">
+                        <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-center">
                           {nextLine.product_image ? (
                             <img
                               src={nextLine.product_image}
@@ -460,15 +495,19 @@ export function PickingPage() {
                           ) : (
                             <div className="h-20 w-20 rounded-xl border border-dashed border-border/70" />
                           )}
-                          <div>
-                            <p className="font-display text-3xl font-bold">{lineDisplayName(nextLine)}</p>
+                          <div className="flex-1">
+                            <p className="font-display text-3xl font-bold leading-tight">
+                              {lineDisplayName(nextLine)}
+                            </p>
                             <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
                               SKU: {nextLine.sku}
                             </p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              Pendiente{" "}
-                              {asNumber(nextLine.qty_ordered) - asNumber(nextLine.qty_picked)} ud
-                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge variant="warning">Escaneos pendientes: {remainingForNext}</Badge>
+                              <Badge variant="outline">
+                                Hecho: {asNumber(nextLine.qty_picked)}/{asNumber(nextLine.qty_ordered)}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -494,6 +533,9 @@ export function PickingPage() {
                           className="h-12 text-lg"
                           placeholder="Escanea aqui"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Cada lectura del lector suma solo 1 unidad.
+                        </p>
                       </div>
 
                       <div className="md:col-span-2">
@@ -509,7 +551,7 @@ export function PickingPage() {
                             Solo siguiente SKU
                           </label>
                           <p className="text-xs text-muted-foreground">
-                            Escaner = 1 unidad por lectura.
+                            Recomendado para evitar confusiones.
                           </p>
                         </div>
                       </div>
@@ -530,19 +572,10 @@ export function PickingPage() {
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => quickScanLine(nextLine, "one")}
+                        onClick={() => quickScanLine(nextLine)}
                         disabled={!nextLine || isActionLoading}
                       >
-                        <ChevronsUpDown />
                         +1 esperado
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => quickScanLine(nextLine, "full")}
-                        disabled={!nextLine || isActionLoading}
-                      >
-                        <Check />
-                        Completar esperado
                       </Button>
                       <Button
                         variant="destructive"
@@ -552,6 +585,10 @@ export function PickingPage() {
                         Cerrar pedido
                       </Button>
                     </div>
+
+                    <p className="rounded-lg border border-border/60 bg-muted/20 px-4 py-2 text-sm text-muted-foreground">
+                      Si una linea pide 2 unidades del mismo SKU, debes escanear 2 veces.
+                    </p>
 
                     <Table>
                       <TableHeader>
@@ -612,18 +649,10 @@ export function PickingPage() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => quickScanLine(line, "one")}
+                                    onClick={() => quickScanLine(line)}
                                     disabled={done || isActionLoading || (strictSequence && !isExpected)}
                                   >
                                     +1
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => quickScanLine(line, "full")}
-                                    disabled={done || isActionLoading || (strictSequence && !isExpected)}
-                                  >
-                                    Completar
                                   </Button>
                                   <Button
                                     variant="ghost"

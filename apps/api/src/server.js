@@ -1644,28 +1644,38 @@ app.post('/api/picking/complete/:orderId', async (req, res) => {
 
     for (const line of lines) {
       if (Number(line.qty_picked) !== Number(line.qty_ordered)) {
-        throw new Error(`Línea ${line.id} incompleta (${line.qty_picked}/${line.qty_ordered})`);
+        throw new Error(`Linea ${line.id} incompleta (${line.qty_picked}/${line.qty_ordered})`);
       }
     }
 
     for (const line of lines) {
-      await applyMovement(client, {
-        variantId: Number(line.variant_id),
-        warehouseId: Number(order.warehouse_id),
-        type: 'release',
-        qty: Number(line.qty_ordered),
-        note: `Liberación reserva pedido ${orderId}`,
-        actor: 'picking-service'
-      });
+      const qtyReserved = Number(line.qty_reserved);
+      const qtyShipped = Number(line.qty_picked);
 
-      await applyMovement(client, {
-        variantId: Number(line.variant_id),
-        warehouseId: Number(order.warehouse_id),
-        type: 'out',
-        qty: Number(line.qty_ordered),
-        note: `Salida pedido ${orderId}`,
-        actor: 'picking-service'
-      });
+      // Reserva y salida se registran por separado para trazabilidad.
+      if (qtyReserved > 0) {
+        await applyMovement(client, {
+          variantId: Number(line.variant_id),
+          warehouseId: Number(order.warehouse_id),
+          type: 'release',
+          qty: qtyReserved,
+          note: `Liberacion reserva pedido ${orderId}`,
+          actor: 'picking-service'
+        });
+      }
+
+      if (qtyShipped > 0) {
+        await applyMovement(client, {
+          variantId: Number(line.variant_id),
+          warehouseId: Number(order.warehouse_id),
+          type: 'out',
+          qty: qtyShipped,
+          note: `Salida pedido ${orderId}`,
+          actor: 'picking-service'
+        });
+      }
+
+      await client.query('UPDATE order_lines SET qty_reserved = 0 WHERE id = $1', [line.id]);
     }
 
     await client.query('UPDATE orders SET status = $1 WHERE id = $2', ['completed', orderId]);

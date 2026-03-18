@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   Package,
+  Rocket,
   RefreshCw,
   ShoppingCart,
   Sparkles,
@@ -18,12 +19,42 @@ import { api, endpoints } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/catalog", label: "Catalogo", icon: Package },
-  { to: "/inventory", label: "Inventario", icon: Boxes },
-  { to: "/orders", label: "Pedidos", icon: ShoppingCart },
-  { to: "/picking", label: "Picking", icon: ClipboardCheck },
-  { to: "/transfers", label: "Traspasos", icon: ArrowLeftRight },
+  {
+    to: "/",
+    label: "Inicio de turno",
+    helper: "Prioridades del dia",
+    icon: LayoutDashboard,
+  },
+  {
+    to: "/catalog",
+    label: "Catalogo",
+    helper: "Fotos, geneticas y packs",
+    icon: Package,
+  },
+  {
+    to: "/inventory",
+    label: "Inventario",
+    helper: "Control y filtros de stock",
+    icon: Boxes,
+  },
+  {
+    to: "/orders",
+    label: "Pedidos",
+    helper: "Manual + PrestaShop",
+    icon: ShoppingCart,
+  },
+  {
+    to: "/picking",
+    label: "Picking",
+    helper: "Escaneo y verificacion",
+    icon: ClipboardCheck,
+  },
+  {
+    to: "/transfers",
+    label: "Traspasos",
+    helper: "Mover stock entre almacenes",
+    icon: ArrowLeftRight,
+  },
 ];
 
 export function AppLayout() {
@@ -51,13 +82,11 @@ export function AppLayout() {
     };
   }, []);
 
-  const activeLabel = useMemo(() => {
-    const item = NAV_ITEMS.find((entry) => {
+  const activeNavItem = useMemo(() => {
+    return NAV_ITEMS.find((entry) => {
       if (entry.to === "/") return location.pathname === "/";
       return location.pathname.startsWith(entry.to);
     });
-
-    return item?.label || "SeedStock";
   }, [location.pathname]);
 
   async function runInit() {
@@ -99,8 +128,8 @@ export function AppLayout() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-display text-lg font-semibold">SeedStock Control</p>
-              <p className="text-xs text-muted-foreground">Warehouse command center</p>
+              <p className="font-display text-lg font-semibold">SeedStock Ops</p>
+              <p className="text-xs text-muted-foreground">Centro de operacion de almacen</p>
             </div>
           </Link>
 
@@ -116,20 +145,31 @@ export function AppLayout() {
                   end={item.to === "/"}
                   className={({ isActive }) =>
                     cn(
-                      "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-all",
+                      "group flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-all",
                       isActive &&
                         "bg-primary/20 text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
                     )
                   }
                 >
-                  <Icon className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  <span>{item.label}</span>
+                  <Icon className="mt-0.5 h-4 w-4 transition-transform group-hover:scale-110" />
+                  <span className="block">
+                    <span className="block leading-tight">{item.label}</span>
+                    <span className="text-xs text-muted-foreground/90">{item.helper}</span>
+                  </span>
                 </NavLink>
               );
             })}
           </nav>
 
-          <div className="mt-8 rounded-xl border border-border/60 bg-background/60 p-4 text-xs text-muted-foreground">
+          <div className="mt-8 space-y-3 rounded-xl border border-border/60 bg-background/60 p-4 text-xs text-muted-foreground">
+            <p className="font-semibold uppercase tracking-[0.08em] text-foreground">Secuencia del turno</p>
+            <p>1) Revisar cola de pedidos.</p>
+            <p>2) Confirmar stock y alertas.</p>
+            <p>3) Preparar en picking con escaneo.</p>
+            <p>4) Cerrar pedido y liberar cola.</p>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-border/60 bg-background/60 p-4 text-xs text-muted-foreground">
             <p className="font-semibold uppercase tracking-[0.08em] text-foreground">Estado</p>
             <p className="mt-2">Fase: {status?.phase || "mvp"}</p>
             <p className="mt-1">Modulos: {status?.modules?.length || 0}</p>
@@ -140,11 +180,20 @@ export function AppLayout() {
           <header className="sticky top-0 z-20 border-b border-border/60 bg-background/70 backdrop-blur-xl">
             <div className="container flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.1em] text-muted-foreground">Modulo activo</p>
-                <p className="font-display text-xl font-semibold">{activeLabel}</p>
+                <p className="text-xs uppercase tracking-[0.1em] text-muted-foreground">Proceso activo</p>
+                <p className="font-display text-xl font-semibold">{activeNavItem?.label || "SeedStock"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {activeNavItem?.helper || "Gestion diaria de almacen y pedidos"}
+                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" className="hidden md:inline-flex" asChild>
+                  <Link to="/orders">
+                    <Rocket />
+                    Ir a cola de pedidos
+                  </Link>
+                </Button>
                 <Button variant="outline" onClick={runInit} disabled={isInitLoading}>
                   {isInitLoading ? <RefreshCw className="animate-spin" /> : null}
                   Inicializar

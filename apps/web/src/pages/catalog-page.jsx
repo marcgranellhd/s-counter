@@ -3,6 +3,7 @@ import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
+import { ProcessGuide } from "@/components/process-guide";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -177,6 +178,37 @@ export function CatalogPage() {
             Actualizar
           </Button>
         }
+      />
+
+      <ProcessGuide
+        title="Flujo simple de alta de producto"
+        description="Pensado para operativa diaria: primero ficha del producto, luego variantes y codigos."
+        steps={[
+          {
+            title: "Crear producto con foto",
+            detail: "Nombre + genetica + foto para identificacion visual en picking.",
+            tone: "info",
+            tag: "obligatorio",
+          },
+          {
+            title: "Crear variantes por pack",
+            detail: "Genera 3, 5, 10, 15, 100 y 250 con SKU unico.",
+            tone: "info",
+            tag: "sku",
+          },
+          {
+            title: "Confirmar codigos",
+            detail: "Verifica barcode/SKU para evitar errores en escaneo.",
+            tone: "success",
+            tag: "control",
+          },
+          {
+            title: "Listo para inventario",
+            detail: "Cuando exista la variante, ya puedes cargar stock.",
+            tone: "success",
+            tag: "siguiente",
+          },
+        ]}
       />
 
       <section className="grid gap-4 xl:grid-cols-5">

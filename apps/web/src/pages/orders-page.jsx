@@ -13,6 +13,8 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
+import { ProcessGuide } from "@/components/process-guide";
+import { StatCard } from "@/components/stat-card";
 import { StatusPill } from "@/components/status-pill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -417,11 +419,32 @@ export function OrdersPage() {
     previewData.mappedLines?.length > 0 &&
     !previewData.mappedLines.some((line) => !line.enoughStock);
 
+  const queueStats = useMemo(() => {
+    return (queue || []).reduce(
+      (acc, order) => {
+        const source = String(order.source || "manual").toLowerCase();
+        const status = String(order.status || "").toLowerCase();
+
+        if (source === "prestashop") {
+          acc.prestashop += 1;
+        } else {
+          acc.manual += 1;
+        }
+
+        if (status === "picking") acc.picking += 1;
+        if (status === "pending") acc.pending += 1;
+
+        return acc;
+      },
+      { manual: 0, prestashop: 0, pending: 0, picking: 0 }
+    );
+  }, [queue]);
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Pedidos y reservas"
-        description="Importa pedidos de PrestaShop, reserva stock y envia directo a picking"
+        description="Entrada de pedidos, reserva automatica y paso directo a picking"
         actions={
           activeTab === "internal" ? (
             <Button variant="outline" onClick={loadQueue} disabled={isQueueLoading}>
@@ -442,11 +465,62 @@ export function OrdersPage() {
         }
       />
 
+      <ProcessGuide
+        title="Proceso de pedidos para operativa diaria"
+        description="Tanto si el pedido es manual como de PrestaShop, el flujo es el mismo."
+        steps={[
+          {
+            title: "Entrar pedido",
+            detail: "Manual o sincronizado desde PrestaShop.",
+            tone: "info",
+            tag: "entrada",
+          },
+          {
+            title: "Reservar stock",
+            detail: "La reserva evita vender unidades ya comprometidas.",
+            tone: "warning",
+            tag: "reserva",
+          },
+          {
+            title: "Enviar a cola",
+            detail: "El pedido pasa automaticamente a preparacion/picking.",
+            tone: "info",
+            tag: "cola",
+          },
+          {
+            title: "Abrir en picking",
+            detail: "Preparar, escanear y cerrar pedido cuando todo este comprobado.",
+            tone: "success",
+            tag: "expedicion",
+          },
+        ]}
+      />
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="En cola" value={queue.length} note="Pedidos pendientes + en curso" />
+        <StatCard label="Pendientes" value={queueStats.pending} note="Listos para empezar picking" />
+        <StatCard label="En picking" value={queueStats.picking} note="Preparacion activa" />
+        <StatCard
+          label="Origen PrestaShop"
+          value={queueStats.prestashop}
+          note={`Manuales: ${queueStats.manual}`}
+        />
+      </section>
+
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">
+            La cola se refresca automaticamente cada 10 segundos y los pedidos de PrestaShop se
+            importan en segundo plano cuando la conexion esta configurada.
+          </p>
+        </CardContent>
+      </Card>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="internal">Interno</TabsTrigger>
-          <TabsTrigger value="prestashop">PrestaShop</TabsTrigger>
-          <TabsTrigger value="settings">Ajustes</TabsTrigger>
+        <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="internal">Pedido manual + cola</TabsTrigger>
+          <TabsTrigger value="prestashop">Entrada PrestaShop</TabsTrigger>
+          <TabsTrigger value="settings">Ajustes de conexion</TabsTrigger>
         </TabsList>
         <TabsContent value="internal" className="space-y-4">
           <section className="grid gap-4 xl:grid-cols-5">

@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import {
+  ArrowRight,
+  Boxes,
+  ClipboardCheck,
+  RefreshCw,
+  ShoppingCart,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
+import { ProcessGuide } from "@/components/process-guide";
 import { StatCard } from "@/components/stat-card";
 import { StatusPill } from "@/components/status-pill";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -57,17 +66,73 @@ export function DashboardPage() {
     [inventory]
   );
 
+  const queueRows = useMemo(
+    () => (orders || []).filter((order) => String(order.status || "").toLowerCase() !== "completed"),
+    [orders]
+  );
+
+  const sourceStats = useMemo(() => {
+    return queueRows.reduce(
+      (acc, order) => {
+        const source = String(order.source || "manual").toLowerCase();
+        if (source === "prestashop") {
+          acc.prestashop += 1;
+        } else {
+          acc.manual += 1;
+        }
+
+        if (String(order.status || "").toLowerCase() === "picking") {
+          acc.inProgress += 1;
+        }
+
+        return acc;
+      },
+      { manual: 0, prestashop: 0, inProgress: 0 }
+    );
+  }, [queueRows]);
+
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Panel operativo"
-        description="Resumen de pedidos, stock critico y estado de preparacion"
+        title="Centro de turno"
+        description="Prioriza pedidos, vigila stock critico y abre picking sin friccion"
         actions={
           <Button variant="outline" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={isLoading ? "animate-spin" : ""} />
             Actualizar
           </Button>
         }
+      />
+
+      <ProcessGuide
+        title="Orden recomendado para trabajar sin errores"
+        description="Este orden minimiza cortes de stock y tiempos muertos en preparacion."
+        steps={[
+          {
+            title: "Revisar cola activa",
+            detail: "Confirma cuantos pedidos entraron y cuales ya estan en picking.",
+            tone: "info",
+            tag: "cola",
+          },
+          {
+            title: "Validar stock critico",
+            detail: "Si hay faltas, ajusta inventario antes de seguir preparando.",
+            tone: "warning",
+            tag: "stock",
+          },
+          {
+            title: "Abrir pedido en picking",
+            detail: "Empieza por los pendientes y valida por escaneo.",
+            tone: "info",
+            tag: "picking",
+          },
+          {
+            title: "Cerrar y pasar al siguiente",
+            detail: "Completa pedido, confirma y continua la cola.",
+            tone: "success",
+            tag: "cierre",
+          },
+        ]}
       />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -93,8 +158,60 @@ export function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
+      <section className="grid gap-4 xl:grid-cols-6">
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Prioridad inmediata</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-xl border border-border/60 bg-background/60 p-3">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-primary" />
+                <p className="font-medium">Pedidos para preparar</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {queueRows.length} en cola, {sourceStats.inProgress} en curso.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="outline">Manual: {sourceStats.manual}</Badge>
+                <Badge variant="secondary">PrestaShop: {sourceStats.prestashop}</Badge>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-background/60 p-3">
+              <div className="flex items-center gap-2">
+                <TriangleAlert className="h-4 w-4 text-amber-300" />
+                <p className="font-medium">Alertas de stock</p>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {lowStockRows.length} referencias con disponible bajo.
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Button asChild className="justify-between">
+                <Link to="/orders">
+                  Gestionar pedidos
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" className="justify-between">
+                <Link to="/picking">
+                  Abrir estacion de picking
+                  <ClipboardCheck />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="justify-between">
+                <Link to="/inventory">
+                  Revisar inventario
+                  <Boxes />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-4">
           <CardHeader>
             <CardTitle>Cola de pedidos</CardTitle>
           </CardHeader>
@@ -111,14 +228,14 @@ export function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.length === 0 ? (
+                {queueRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground">
                       Sin pedidos
                     </TableCell>
                   </TableRow>
                 ) : (
-                  orders.slice(0, 14).map((order) => (
+                  queueRows.slice(0, 14).map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>#{order.id}</TableCell>
                       <TableCell>
@@ -141,8 +258,10 @@ export function DashboardPage() {
             </Table>
           </CardContent>
         </Card>
+      </section>
 
-        <Card className="xl:col-span-2">
+      <section className="grid gap-4">
+        <Card>
           <CardHeader>
             <CardTitle>Alertas de stock bajo</CardTitle>
           </CardHeader>

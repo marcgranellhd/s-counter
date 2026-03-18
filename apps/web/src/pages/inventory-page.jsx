@@ -3,6 +3,7 @@ import { RefreshCw, RotateCcw, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
+import { ProcessGuide } from "@/components/process-guide";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,18 @@ export function InventoryPage() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [filters.maxAvailable]);
 
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (String(filters.term || "").trim()) count += 1;
+    if (filters.pack !== "all") count += 1;
+    if (filters.stockStatus !== "all") count += 1;
+    if (filters.reservedStatus !== "all") count += 1;
+    if (String(filters.minAvailable || "").trim()) count += 1;
+    if (String(filters.maxAvailable || "").trim()) count += 1;
+    if (warehouseScope !== "all") count += 1;
+    return count;
+  }, [filters, warehouseScope]);
+
   const rowMatchesFilters = useCallback(
     (row) => {
       const term = String(filters.term || "").trim().toUpperCase();
@@ -230,6 +243,12 @@ export function InventoryPage() {
 
   const visibleRows = viewMode === "separate" ? separateRows : mergedRows;
 
+  const warehouseScopeLabel = useMemo(() => {
+    if (warehouseScope === "all") return "Todos los almacenes";
+    const warehouse = warehouses.find((item) => String(item.id) === String(warehouseScope));
+    return warehouse?.name || `Almacen ${warehouseScope}`;
+  }, [warehouseScope, warehouses]);
+
   const totals = useMemo(() => {
     return visibleRows.reduce(
       (acc, row) => {
@@ -292,7 +311,7 @@ export function InventoryPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Inventario y ledger"
+        title="Inventario operativo"
         description="Control por almacen con filtros avanzados y vista combinada o separada"
         actions={
           <Button variant="outline" onClick={loadData} disabled={isLoading}>
@@ -301,6 +320,53 @@ export function InventoryPage() {
           </Button>
         }
       />
+
+      <ProcessGuide
+        title="Flujo diario de inventario"
+        description="Sigue siempre este orden para evitar descuadres de stock."
+        steps={[
+          {
+            title: "Seleccionar vista",
+            detail: "Por almacen o almacenes juntos segun lo que necesites revisar.",
+            tone: "info",
+            tag: "vista",
+          },
+          {
+            title: "Filtrar y detectar alertas",
+            detail: "Busca por SKU/producto y revisa criticos o sin stock.",
+            tone: "warning",
+            tag: "alertas",
+          },
+          {
+            title: "Aplicar movimiento",
+            detail: "Entrada, salida o ajuste manual con nota de trazabilidad.",
+            tone: "info",
+            tag: "ledger",
+          },
+          {
+            title: "Validar disponible",
+            detail: "Confirma que el disponible final es coherente para preparar pedidos.",
+            tone: "success",
+            tag: "cierre",
+          },
+        ]}
+      />
+
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-2 pt-6 text-sm text-muted-foreground">
+          <Badge variant="outline">
+            Vista: {viewMode === "separate" ? "Por almacen (separado)" : "Almacenes juntos"}
+          </Badge>
+          {viewMode === "separate" ? (
+            <Badge variant="secondary">
+              Ambito: {warehouseScopeLabel}
+            </Badge>
+          ) : null}
+          <Badge variant={activeFiltersCount > 0 ? "warning" : "outline"}>
+            Filtros activos: {activeFiltersCount}
+          </Badge>
+        </CardContent>
+      </Card>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="On hand (vista actual)" value={totals.onHand} />
